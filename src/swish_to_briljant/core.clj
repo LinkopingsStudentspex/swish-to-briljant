@@ -1,7 +1,7 @@
 (ns swish-to-briljant.core
   (:require [dk.ative.docjure.spreadsheet :as dc]
             [bg-to-briljant.arguments     :refer [validate-args]]
-            [swish-to-briljant.utilities  :refer [condp-map re-find-safe capitalize-words]])
+            [swish-to-briljant.utilities  :refer [condp-fn re-find-safe capitalize-words tprn]])
   (:gen-class))
 
 (def settings (read-string (slurp "settings.edn")))
@@ -13,24 +13,30 @@
   anges i inställningarna för programmet."
   [transaktion]
   (assoc transaktion :kategori
-         ;; Antingen lyckas en utav de två olika
-         ;; kategoriseringsmetoderna klassa transaktionen eller så får
-         ;; den bli kallad för ~okategoriserad~ fika.
+         ;; Antingen lyckas en utav de två olika kategoriseringsmetoderna
+         ;; klassa transaktionen eller så får den bli kallad för fika.
          (or (condp-fn re-find-safe (:meddelande transaktion) (:meddelande-regex->kategori settings))
              (condp-fn ==           (:belopp     transaktion) (:belopp->kategori           settings))
              :fika)))
 
 (defn associera-kreditkonto
-  "Var transaktion bör debitera ett kreditkonto. Denna funktion
+  "Var transaktion bör belasta ett kreditkonto. Denna funktion
   associerar en transaktion med ett sådant."
   [transaktion]
-  (assoc transaktion :kreditkonto ((:kategori transaktion) (:kategori->kreditkonto settings))))
+  (assoc transaktion :kreditkonto  (get (:kategori->kreditkonto settings)   (:kategori transaktion))))
+
+(defn associera-debetkonto
+  "I den swish-rapport som vi får skickade till oss har var
+  transaktion ett debetkontot på banken associerat med sig. Vi
+  översätter här bankkontonummeret till debetkonto i bokföring."
+  [transaktion]
+  (assoc transaktion :debetkonto   (get (:kontonummer->debetkonto settings) (:kontonummer transaktion))))
 
 (defn associera-underprojekt
   "Var kategori av transaktioner hör oftast hemma i ett visst
   underprojekt i bokföringen. Dessa är t.ex. uppsättningen eller KM."
   [transaktion]
-  (assoc transaktion :underprojekt ((:kategori transaktion) (:kategori->underprojekt settings))))
+  (assoc transaktion :underprojekt (get (:kategori->underprojekt settings)  (:kategori transaktion) )))
 
 (defn dokument->transaktioner
   "Extraherar alla transaktioner ur ett swishrapport i
@@ -48,27 +54,34 @@
      (drop 2) ; Transaktionerna börjar efter rad 2.
      (map kategorisera)
      (map associera-kreditkonto)
+     (map associera-debetkonto)
      (map associera-underprojekt)))
 
-(defn transaktion->kredit-csv-string
-  "Tar en transaktion och returnerar kredit-delen av transaktionen
-  som en CSV-string."
-  [{:keys [kreditkonto kreditunderkonto underprojekt belopp meddelande användarnamn datum]}]
-  (str ";" datum
-       ";" kreditkonto
-       ";" kreditunderkonto
-       ";;;" (if underprojekt (str (:projekt settings)","underprojekt) "")
-       ";;" (- belopp)
-       ";" meddelande " " (capitalize-words användarnamn)
-       ";;"))
+(defn gruppera-krediteringar
+  "Istället för att låta samtliga små betalningar belasta
+  kreditkontona grupperar vi ihop dom till ett fåtal stora"
+  [transaktioner]
+  (->> transaktioner
+       (group-by :kategori)
+       (reduce-kv (fn [result key value]
+                    (assoc result key (reduce #(+ (:belopp %2) %1) 0 value)))
+                  {})
+       (map (fn [nyckel-värde-par] {:kategori (first  nyckel-värde-par)
+                                    :belopp   (second nyckel-värde-par)
+                                    :projekt  (:projekt settings)}))
+       (map associera-kreditkonto)
+       (map associera-underprojekt)))
 
-(defn transaktion->debet-csv-string
-  "Tar en transaktion och returnerar debet-delen av transaktionen som
-  en CSV-string."
-  [{:keys [debetkonto underprojekt belopp meddelande användarnamn datum]}]
-  (str ";" datum
-       ";" debetkonto
-       ";;;;" (if underprojekt (str (:projekt settings)","underprojekt) "")
+(defn transaktion->csv-string
+  "Tar en typ av transaktion en transaktion och returnerar den på
+  Briljants CSV-format. Det första argumentet avgör om debet eller
+  kredit-delen av transaktionen skrivs ut, giltiga värden
+  är :debet eller :kredit."
+  [typ {:keys [kreditkonto debetkonto kreditunderkonto underprojekt belopp meddelande användarnamn bokföringsdag]}]
+  (str ";" bokföringsdag
+       ";" (if   (= typ :kredit) kreditkonto debetkonto)
+       ";" (when (= typ :kredit) kreditunderkonto)
+       ";;;" (if underprojekt (str (:projekt settings)","underprojekt) "")
        ";;" (- belopp)
        ";" meddelande " " (capitalize-words användarnamn)
        ";;"))
@@ -82,8 +95,6 @@
         meddelandevektor (clojure.string/split meddelande #" ")]
     (str (get meddelandevektor 3) "_-_" (get meddelandevektor 5))))
 
-
-
 (defn -main
   [& args]
   (let [{:keys [arguments options exit-message ok?]} (validate-args args)]
@@ -91,14 +102,17 @@
       (do (println exit-message)
           (System/exit (if ok? 0 1)))
       (for [dokument (map dc/load-workbook arguments)]
-        (let [outpath (str "out/" (dokument->datumintervall dokument) ".csv")]
+        (let [outpath       (str "out/" (dokument->datumintervall dokument) ".csv")
+              transaktioner (dokument->transaktioner dokument)]
           (println "Writing to " outpath)
           (spit outpath
                 (str headers
-                     (->> dokument
-                          dokument->transaktioner
-                          (map transaktion->csv-string)
+                     (->> transaktioner
+                          (map (partial transaktion->csv-string :debet))
+                          (clojure.string/join "\n"))
+                     "\n"
+                     (->> transaktioner
+                          (gruppera-krediteringar)
+                          (map (partial transaktion->csv-string :kredit))
                           (clojure.string/join "\n"))
                      "\n")))))))
-
-(-main "in/Swishrapport.xls")
