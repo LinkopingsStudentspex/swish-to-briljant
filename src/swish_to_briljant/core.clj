@@ -1,6 +1,6 @@
 (ns swish-to-briljant.core
   (:require [dk.ative.docjure.spreadsheet :as dc]
-            [bg-to-briljant.arguments     :refer [validate-args]]
+            [swish-to-briljant.arguments     :refer [validate-args]]
             [swish-to-briljant.utilities  :refer [condp-fn re-find-safe capitalize-words tprn]])
   (:gen-class))
 
@@ -46,7 +46,7 @@
   (->> dokument
      (dc/select-sheet "Swish-rapport")
      (dc/select-columns {:C :kontonummer   ; Notera att dessa är text, inte tal.
-                         :D :bokföringsdag
+                         :E :transaktionsdag
                          :J :användarnamn
                          :K :meddelande
                          :L :klockslag
@@ -71,21 +71,21 @@
                                     :projekt  (:projekt settings)}))
        (map associera-kreditkonto)
        (map associera-underprojekt)
-       (map #(assoc % :bokföringsdag (:bokföringsdag (first transaktioner))))))
+       (map #(assoc % :transaktionsdag (:transaktionsdag (first transaktioner))))))
 
 (defn transaktion->csv-string
   "Tar en typ av transaktion en transaktion och returnerar den på
   Briljants CSV-format. Det första argumentet avgör om debet eller
   kredit-delen av transaktionen skrivs ut, giltiga värden
   är :debet eller :kredit."
-  [typ {:keys [kreditkonto debetkonto kreditunderkonto underprojekt belopp meddelande användarnamn bokföringsdag]}]
-  (str ";" bokföringsdag
+  [typ {:keys [kreditkonto debetkonto kreditunderkonto underprojekt belopp meddelande användarnamn transaktionsdag]}]
+  (str ";" transaktionsdag
        ";" (if   (= typ :kredit) kreditkonto debetkonto)
        ";" (when (= typ :kredit) kreditunderkonto)
        ";;;" (if underprojekt (str (:projekt settings)","underprojekt) "")
        ";;" (- belopp)
        ";" (if   (= typ :kredit)
-             (str "Swish-bet. " bokföringsdag)
+             (str "Swish-bet. " transaktionsdag)
              (str meddelande " " (capitalize-words användarnamn)))
        ";;"))
 
@@ -115,7 +115,7 @@
                           (clojure.string/join "\n"))
                      "\n"
                      (->> transaktioner
-                          (partition-by :bokföringsdag)
+                          (partition-by :transaktionsdag)
                           (map gruppera-krediteringar)
                           flatten
                           (map (partial transaktion->csv-string :kredit))
