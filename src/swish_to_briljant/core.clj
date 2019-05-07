@@ -70,7 +70,8 @@
                                     :belopp   (second nyckel-värde-par)
                                     :projekt  (:projekt settings)}))
        (map associera-kreditkonto)
-       (map associera-underprojekt)))
+       (map associera-underprojekt)
+       (map #(assoc % :bokföringsdag (:bokföringsdag (first transaktioner))))))
 
 (defn transaktion->csv-string
   "Tar en typ av transaktion en transaktion och returnerar den på
@@ -83,7 +84,9 @@
        ";" (when (= typ :kredit) kreditunderkonto)
        ";;;" (if underprojekt (str (:projekt settings)","underprojekt) "")
        ";;" (- belopp)
-       ";" meddelande " " (capitalize-words användarnamn)
+       ";" (if   (= typ :kredit)
+             (str "Swish-bet. " bokföringsdag)
+             (str meddelande " " (capitalize-words användarnamn)))
        ";;"))
 
 (defn dokument->datumintervall
@@ -112,7 +115,9 @@
                           (clojure.string/join "\n"))
                      "\n"
                      (->> transaktioner
-                          (gruppera-krediteringar)
+                          (partition-by :bokföringsdag)
+                          (map gruppera-krediteringar)
+                          flatten
                           (map (partial transaktion->csv-string :kredit))
                           (clojure.string/join "\n"))
                      "\n")))))))
