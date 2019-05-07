@@ -1,5 +1,5 @@
 (ns bg-to-briljant.arguments
-  (:require [clojure.tools.cli :as cli]))b
+  (:require [clojure.tools.cli :as cli]))
 
 (def cli-options
   [["-h" "--help"]])
