@@ -1,4 +1,4 @@
-(ns bg-to-briljant.arguments
+(ns swish-to-briljant.arguments
   (:require [clojure.tools.cli :as cli]))
 
 (def cli-options
