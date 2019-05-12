@@ -83,7 +83,7 @@
        ";" (if   (= typ :kredit) kreditkonto debetkonto)
        ";" (when (= typ :kredit) kreditunderkonto)
        ";;;" (if underprojekt (str (:projekt settings)","underprojekt) "")
-       ";;" (- belopp)
+       ";;" (if  (= typ :kredit) (- belopp) belopp)
        ";" (if   (= typ :kredit)
              (str "Swish-bet. " transaktionsdag)
              (str meddelande " " (capitalize-words användarnamn)))
@@ -111,13 +111,12 @@
           (spit outpath
                 (str headers
                      (->> transaktioner
-                          (map (partial transaktion->csv-string :debet))
-                          (clojure.string/join "\n"))
-                     "\n"
-                     (->> transaktioner
                           (partition-by :transaktionsdag)
-                          (map gruppera-krediteringar)
+                          (map (juxt #(map (partial transaktion->csv-string :debet) %)
+                                     #(->> %
+                                           gruppera-krediteringar
+                                           (map (partial transaktion->csv-string :kredit)))))
+                          (map flatten)
                           flatten
-                          (map (partial transaktion->csv-string :kredit))
                           (clojure.string/join "\n"))
                      "\n")))))))
