@@ -7,8 +7,8 @@
  ;; associativ datastruktur är att ordningen spelar roll, tidigare
  ;; regler kommer alltid användas före om de matchar.
  :meddelande-regex->kategori [#"Spexprogram"   :programblad
-                              #"(?i)program"   :programblad
                               #"(?i)märke"     :märke
+                              #"(?i)program"   :programblad
                               #"(?i)fika"      :fika
                               #"(?i)godis"     :fika
                               #"(?i)trocadero" :fika
@@ -21,22 +21,31 @@
                               #"(?i)cola"      :fika
                               #"(?i)vatten"    :fika
                               #"(?i)kiosk"     :fika
-                              #"(?i)coffee"    :fika
-                              #"(?i)bil"       :fika]
+                              #"(?i)coffee"    :fika]
  ;; Efter kategoriseringen via meddelande är slutfört körs en sekundär
  ;; kategorisering baserat på pris igång.
- :belopp->kategori           [5                :fika
+ :absolutbelopp->kategori    [5                :fika
                               10               :fika
                               15               :fika
-                              25               :programblad]
+                              20               :märke
+                              25               :programblad
+                              40               :märke]
+ ;; Efter kategoriseringen via absolutbelopp så gör vi ytterligare en
+ ;; kategorisering där vi kollar på huruvida beloppet är jämn delbart
+ ;; med något av de nedanstående.
+ :delbelopp->kategori        [150              :biljett
+                              120              :biljett
+                              100              :biljett]
  ;; Vilket kreditkonto bokförs var kategori under?
  :kategori->kreditkonto      {:programblad     3144
                               :märke           3149
+                              :biljett         3152
                               :fika            3165
                               :okategoriserat  9999}
  ;; Vilket underprojekt bör var kategori sorteras in under?
  :kategori->underprojekt     {:programblad     501
                               :märke           501
+                              :biljett         501
                               :fika            501
                               :okategoriserat  nil}
  ;; Var swishrapport är för ett visst kontonummer hos banken. Detta

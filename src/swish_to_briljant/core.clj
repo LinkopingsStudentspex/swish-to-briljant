@@ -6,18 +6,18 @@
 
 (def settings (read-string (slurp "settings.edn")))
 (def headers    "PREL\n1;.U\n")
-(def dokument (dc/load-workbook "in/Swishrapport.xls"))
 
 (defn kategorisera
   "Kategorisera en transaktion att vara i någon av de kotegorier som
   anges i inställningarna för programmet."
   [transaktion]
   (assoc transaktion :kategori
-         ;; Antingen lyckas en utav de två olika kategoriseringsmetoderna
-         ;; klassa transaktionen eller så får den bli kallad för fika.
-         (or (condp-fn re-find-safe (:meddelande transaktion) (:meddelande-regex->kategori settings))
-             (condp-fn ==           (:belopp     transaktion) (:belopp->kategori           settings))
-             :fika)))
+         ;; Antingen lyckas en utav de tre olika kategoriseringsmetoderna
+         ;; klassa transaktionen eller så får den bli kallad okategoriserad.
+         (or (condp-fn re-find-safe        (:meddelande transaktion) (:meddelande-regex->kategori settings))
+             (condp-fn ==                  (:belopp     transaktion) (:absolutbelopp->kategori    settings))
+             (condp-fn #(== (mod %2 %1) 0) (:belopp     transaktion) (:delbelopp->kategori        settings))
+             :okategoriserat)))
 
 (defn associera-kreditkonto
   "Var transaktion bör belasta ett kreditkonto. Denna funktion
@@ -90,6 +90,8 @@
        ";;"))
 
 (defn dokument->datumintervall
+  "Tar en swishrapport och returnerar det datumintervall som
+  rapporten gäller för."
   [dokument]
   (let [meddelande (->> dokument
                         (dc/select-sheet "Swish-rapport")
@@ -99,6 +101,7 @@
     (str (get meddelandevektor 3) "_-_" (get meddelandevektor 5))))
 
 (defn -main
+  "Programmets huvudfunktion."
   [& args]
   (let [{:keys [arguments options exit-message ok?]} (validate-args args)]
     (if exit-message
@@ -111,6 +114,7 @@
           (spit outpath
                 (str headers
                      (->> transaktioner
+                          (sort-by :transaktionsdag)
                           (partition-by :transaktionsdag)
                           (map (juxt #(map (partial transaktion->csv-string :debet) %)
                                      #(->> %
