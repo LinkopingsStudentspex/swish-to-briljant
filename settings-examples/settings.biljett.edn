@@ -40,7 +40,7 @@
  :kategori->kreditkonto      {:programblad     3144
                               :märke           3149
                               :biljett         3152
-                              :fika            3165
+                              :fika            3155
                               :okategoriserat  9999}
  ;; Vilket underprojekt bör var kategori sorteras in under?
  :kategori->underprojekt     {:programblad     501
