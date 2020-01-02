@@ -1,44 +1,37 @@
 # swish-to-briljant
 
-FIXME: description
+A program which takes a excel based report on sales from Swish and
+converts in to a CSV file ready for consumption by Briljant. Through
+some heuristics specified in settings.edn all transactions are also
+classified as to which kredit account they belong to.
 
 ## Installation
 
-Download from http://example.com/FIXME.
+The source code is available from https://github.com/LinkopingsStudentspex/swish-to-briljant
+
+## Building
+
+After downloading the source code either with git or by downloading a
+zip-file and extracting it, move your terminal to that folder with
+`cd`. Then run the following command to build a standalone version of
+the program.
+
+    $ lein uberjar
+
+It can then be run with:
+
+    $ target/uberjar/swish-to-briljant-0.1.0-SNAPSHOT-standalone.jar in/Swishrapport.xls
+
+where in/Swishrapport.xls is the path to the Swish report you have
+aquired from your bank.
 
 ## Usage
 
-FIXME: explanation
+Once compiled this application may be run
 
     $ java -jar swish-to-briljant-0.1.0-standalone.jar [args]
 
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
 
 ## License
 
-Copyright © 2019 FIXME
-
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
-
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.
+Copyright © 2019 Christian Luckey
