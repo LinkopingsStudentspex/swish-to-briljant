@@ -4,8 +4,8 @@
             [swish-to-briljant.utilities  :refer [condp-fn re-find-safe capitalize-words tprn]])
   (:gen-class))
 
-(def settings (read-string (slurp "settings.edn")))
-(def headers    "PREL\n1;.U\n")
+(def settings    (read-string (slurp "settings.edn")))
+(def csv-headers "PREL\n1;.U\n")
 
 (defn kategorisera
   "Kategorisera en transaktion att vara i någon av de kotegorier som
@@ -122,7 +122,7 @@
               transaktioner (dokument->transaktioner dokument)]
           (println "Skriver CSV-fil för briljant till " outpath)
           (spit outpath
-                (str headers
+                (str csv-headers
                      (->> transaktioner
                           (sort-by :transaktionsdag)
                           (partition-by :transaktionsdag)
