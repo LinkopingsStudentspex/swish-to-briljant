@@ -100,6 +100,16 @@
         meddelandevektor (clojure.string/split meddelande #" ")]
     (str (get meddelandevektor 3) "_-_" (get meddelandevektor 5))))
 
+(defn load-workbook-or-terminate
+  "Laddar en fil om den existerar och går eller terminerar programmet
+  efter att ha gett användaren felmeddelandet"
+  [file-path]
+  (try
+    (dc/load-workbook file-path)
+    (catch Exception e
+      (println (str "Kunde inte ladda excelarket " file-path " av följande anledning: " (.getMessage e)))
+      (System/exit 2))))
+
 (defn -main
   "Programmets huvudfunktion."
   [& args]
@@ -107,10 +117,10 @@
     (if exit-message
       (do (println exit-message)
           (System/exit (if ok? 0 1)))
-      (for [dokument (map dc/load-workbook arguments)]
+      (for [dokument (map load-workbook-or-terminate arguments)]
         (let [outpath       (str "out/" (dokument->datumintervall dokument) ".csv")
               transaktioner (dokument->transaktioner dokument)]
-          (println "Writing to " outpath)
+          (println "Skriver CSV-fil för briljant till " outpath)
           (spit outpath
                 (str headers
                      (->> transaktioner
