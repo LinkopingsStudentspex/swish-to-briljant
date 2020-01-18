@@ -1,8 +1,10 @@
 (ns swish-to-briljant.core
-  (:require [dk.ative.docjure.spreadsheet :as dc]
-            [swish-to-briljant.arguments     :refer [validate-args]]
+  (:require [clojure.string               :as string]
+            [dk.ative.docjure.spreadsheet :as dc]
+            [swish-to-briljant.arguments  :refer [validate-args]]
             [swish-to-briljant.utilities  :refer [condp-fn re-find-safe capitalize-words tprn]])
   (:gen-class))
+
 
 (def settings    (read-string (slurp "settings.edn")))
 (def csv-headers "PREL\n1;.U\n")
@@ -117,20 +119,22 @@
     (if exit-message
       (do (println exit-message)
           (System/exit (if ok? 0 1)))
-      (for [dokument (map load-workbook-or-terminate arguments)]
-        (let [outpath       (str "out/" (dokument->datumintervall dokument) ".csv")
-              transaktioner (dokument->transaktioner dokument)]
-          (println "Skriver CSV-fil för briljant till " outpath)
-          (spit outpath
-                (str csv-headers
-                     (->> transaktioner
-                          (sort-by :transaktionsdag)
-                          (partition-by :transaktionsdag)
-                          (map (juxt #(map (partial transaktion->csv-string :debet) %)
-                                     #(->> %
-                                           gruppera-krediteringar
-                                           (map (partial transaktion->csv-string :kredit)))))
-                          (map flatten)
-                          flatten
-                          (clojure.string/join "\n"))
-                     "\n")))))))
+      (for [sökväg arguments
+            :let   [dokument (load-workbook-or-terminate sökväg)
+                    filnamn  (first (string/split (last (string/split sökväg #"/")) #"\."))
+                    utfil  (str "out/" filnamn " " (dokument->datumintervall dokument) ".csv")
+                    transaktioner (dokument->transaktioner dokument)]]
+        (println "Skriver CSV-fil för briljant till" utfil)
+        (spit utfil
+              (str csv-headers
+                   (->> transaktioner
+                        (sort-by :transaktionsdag)
+                        (partition-by :transaktionsdag)
+                        (map (juxt #(map (partial transaktion->csv-string :debet) %)
+                                   #(->> %
+                                         gruppera-krediteringar
+                                         (map (partial transaktion->csv-string :kredit)))))
+                        (map flatten)
+                        flatten
+                        (clojure.string/join "\n"))
+                   "\n"))))))
